@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Refri Familiar</title>
+<meta name="description" content="El inventario del refri de la familia, con lista de compras por tienda.">
+<meta name="theme-color" content="#F1F3EF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E120F" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Refri">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preload" href="fonts/nunito-sans.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/bricolage.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="styles.css">
+<script>
+  try {
+    const p = JSON.parse(localStorage.getItem("refri:prefs") || "{}");
+    const r = document.documentElement;
+    if (p.theme && p.theme !== "system") r.dataset.theme = p.theme;
+    if (p.accent) r.dataset.accent = p.accent;
+    if (p.size) r.dataset.size = p.size;
+  } catch {}
+</script>
+</head>
+<body>
+<div id="app" aria-live="polite"><div class="boot"><div class="boot-logo"></div></div></div>
+<div id="sheet-root"></div>
+<div class="toast" id="toast" role="status" hidden></div>
+<script src="vendor/jspdf.umd.min.js" defer></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

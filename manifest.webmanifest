@@ -1,0 +1,17 @@
+{
+  "name": "Refri Familiar",
+  "short_name": "Refri",
+  "description": "Lo que hay en el refri, la lista del súper y qué comprar, compartido con tu familia.",
+  "lang": "es-MX",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F1F3EF",
+  "theme_color": "#3D7A2C",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
