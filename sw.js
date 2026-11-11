@@ -1,6 +1,6 @@
 // Guarda la app en el teléfono para que abra sin internet.
 // Cada vez que se publica una versión nueva, cambia VERSION y la app avisa "Hay una versión nueva".
-const VERSION = "refri-v1.0.0";
+const VERSION = "refri-v1.0.1";
 const SHELL = [
   "./", "index.html", "styles.css", "manifest.webmanifest",
   "js/app.js", "js/foods.js", "js/config.js",

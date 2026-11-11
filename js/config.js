@@ -1,11 +1,10 @@
-// Pega aquí la configuración web de tu proyecto de Firebase
-// (Consola de Firebase → ⚙️ Configuración del proyecto → Tus apps → Web → firebaseConfig).
+// Configuración web del proyecto de Firebase "refri-familiar".
 // Estos valores no son secretos: la seguridad la dan las reglas de Firestore (firestore.rules).
 export const firebaseConfig = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
-  storageBucket: "",
-  messagingSenderId: "",
-  appId: "",
+  apiKey: "AIzaSyAUcDh3lSncnh-Ssaw4GlKQx7vGWWZKTH8",
+  authDomain: "refri-familiar.firebaseapp.com",
+  projectId: "refri-familiar",
+  storageBucket: "refri-familiar.firebasestorage.app",
+  messagingSenderId: "421747100876",
+  appId: "1:421747100876:web:3ef236c2985ab3079fc669",
 };
