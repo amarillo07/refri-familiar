@@ -5,9 +5,9 @@ import {
   deleteDoc, onSnapshot, query, orderBy, limit, writeBatch, arrayUnion,
 } from "../vendor/firebase.js";
 import { firebaseConfig } from "./config.js";
-import { CATS, CAT, PLACES, UNITS, DEFAULT_STORES, QUICK, STAPLES, norm, guess, unitPrice, foodSVG } from "./foods.js";
+import { CATS, CAT, CATALOG, PLACES, UNITS, DEFAULT_STORES, QUICK, STAPLES, norm, guess, unitPrice, foodSVG } from "./foods.js";
 
-const VERSION = "1.0.2";
+const VERSION = "1.1.0";
 const DAY = 864e5;
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -233,7 +233,7 @@ function addShop(d) {
 }
 function parseQuick(text) {
   // "1 kg de limón", "3 jitomates", "leche"
-  const m = text.trim().match(/^(\d+(?:[.,]\d+)?)\s*(kg|g|l|ml|pza|pzas|piezas?|paquetes?|bolsas?|latas?|cajas?|manojos?)?\s*(?:de\s+)?(.+)$/i);
+  const m = text.trim().match(/^(\d+(?:[.,]\d+)?)\s*(kg|g|l|ml|pza|pzas|piezas?|paquetes?|bolsas?|latas?|cajas?|manojos?|frascos?|botellas?|rollos?)?\s*(?:de\s+)?(.+)$/i);
   if (!m) return { name: text.trim() };
   let unit = (m[2] || "").toLowerCase();
   unit = unit.startsWith("pz") || unit.startsWith("pie") ? "pza" : unit.replace(/s$/, "");
@@ -429,7 +429,8 @@ function listaHTML() {
     <datalist id="known"></datalist>
     <div class="chips" id="storeTabs" role="tablist" aria-label="Tiendas"></div>
     <div id="lgroups" style="display:flex;flex-direction:column;gap:14px"></div>
-    <button class="btn soft" data-act="missing">${ic("spark")} Agregar lo que falta en el refri</button>
+    <div class="row wrap"><button class="btn soft" data-act="catalog" style="flex:1">${ic("cart")} Catálogo del súper</button>
+    <button class="btn soft" data-act="missing" style="flex:1">${ic("spark")} Lo que falta en casa</button></div>
   </main>
   <div class="listfoot"><div><div class="totalline" id="listFoot"></div><button class="btn big dark" data-act="tofridge">Pasar comprados al refri<span class="dot">${ic("fridge")}</span></button></div></div>`;
 }
@@ -441,11 +442,11 @@ function updLista() {
   const total = S.shop.reduce((a, s) => a + (estPrice(s) || 0), 0);
   const pend = S.shop.filter((s) => !s.done).length;
   $("#listSum").innerHTML = `${pend} pendiente${pend === 1 ? "" : "s"} · gasto aprox. <b style="color:var(--ink)">${mxn(total)} MXN</b>`;
-  $("#known").innerHTML = [...new Set([...S.items.map((i) => i.name), ...QUICK])].map((n) => `<option value="${esc(n)}">`).join("");
+  $("#known").innerHTML = [...new Set([...S.items.map((i) => i.name), ...CATALOG.map((e) => e.name)])].map((n) => `<option value="${esc(n)}">`).join("");
   $("#storeTabs").innerHTML = order.map((x) => { const n = S.shop.filter((s) => storeOf(s) === x && !s.done).length; return `<button class="chip" role="tab" aria-selected="${x === S.listStore}" data-store="${esc(x)}">${esc(x)} <small>${n}</small></button>`; }).join("");
   const rows = S.shop.filter((s) => storeOf(s) === S.listStore);
   const box = $("#lgroups");
-  if (!rows.length) box.innerHTML = `<div class="empty"><p>Nada pendiente en <b>${esc(S.listStore)}</b>. Escribe arriba lo que falta, o toca <b>Agregar lo que falta</b>.</p></div>`;
+  if (!rows.length) box.innerHTML = `<div class="empty"><p>Nada pendiente en <b>${esc(S.listStore)}</b>. Escribe arriba lo que falta, o abre el <b>Catálogo del súper</b>.</p></div>`;
   else {
     const by = {}; rows.forEach((r) => (by[r.cat || "otros"] ??= []).push(r));
     box.innerHTML = CATS.filter((c) => by[c.id]).map((c) => `<div class="lgroup"><h2 class="cap">${esc(c.name)}</h2><div class="lcard">${by[c.id].sort((a, b) => a.done - b.done || a.name.localeCompare(b.name, "es")).map((r) => {
@@ -530,6 +531,59 @@ function openSheet(html, onMount) {
 function closeSheet() { $("#sheet-root").innerHTML = ""; }
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("#scrim")) closeSheet(); });
 
+/* ---------- catálogo (buscador con ilustraciones) ---------- */
+function pickerHTML(id, placeholder = "Buscar: papel de baño, comino, fresa…") {
+  const tabs = [["frec", "Frecuentes"], ...CATS.filter((c) => CATALOG.some((e) => e.cat === c.id)).map((c) => [c.id, c.name])];
+  return `<div class="picker" id="${id}">
+    <label class="pk-search">${ic("search")}<span class="sr">Buscar en el catálogo</span><input type="search" class="pk-q" placeholder="${esc(placeholder)}" autocomplete="off"></label>
+    <div class="chips pk-tabs" role="tablist" aria-label="Categorías">${tabs.map(([k, l], i) => `<button type="button" class="chip" role="tab" data-pk="${k}" aria-selected="${i === 0}">${esc(l)}</button>`).join("")}</div>
+    <div class="qgrid pk-grid"></div></div>`;
+}
+function mountPicker(root, { onPick, isOn = () => false }) {
+  let tab = "frec", q = "";
+  const grid = root.querySelector(".pk-grid");
+  const draw = () => {
+    let list;
+    if (q) { const n = norm(q); list = CATALOG.filter((e) => e.keys.some((k) => k.includes(n))).slice(0, 60); }
+    else if (tab === "frec") list = QUICK.map((n) => CATALOG.find((e) => e.name === n)).filter(Boolean);
+    else list = CATALOG.filter((e) => e.cat === tab);
+    grid.innerHTML = list.length
+      ? list.map((e) => `<button type="button" class="qbtn" data-pick="${esc(e.name)}" aria-pressed="${isOn(e.name)}">${foodSVG(e.name, e.cat, 40)}<span>${esc(e.name)}</span></button>`).join("")
+      : `<p class="note" style="grid-column:1/-1">No está en el catálogo. ${q ? `<button type="button" class="btn soft" data-pick="${esc(q.trim().replace(/^\w/, (c) => c.toUpperCase()))}" style="min-height:40px;margin-top:6px">${ic("plus")} Usar “${esc(q.trim())}”</button>` : ""}</p>`;
+  };
+  root.querySelector(".pk-q").addEventListener("input", (e) => { q = e.target.value; draw(); });
+  root.querySelectorAll("[data-pk]").forEach((b) => b.addEventListener("click", () => {
+    tab = b.dataset.pk; q = ""; root.querySelector(".pk-q").value = "";
+    root.querySelectorAll("[data-pk]").forEach((x) => x.setAttribute("aria-selected", x === b)); draw(); grid.scrollTop = 0;
+  }));
+  grid.addEventListener("click", (e) => { const b = e.target.closest("[data-pick]"); if (b) { onPick(b.dataset.pick, b); } });
+  draw();
+  return { redraw: draw };
+}
+function catalogSheet() {
+  openSheet(`<div class="grip"></div>
+    <div class="head"><h1>Catálogo del súper</h1><button class="iconbtn sm" data-close aria-label="Cerrar">${ic("x")}</button></div>
+    <p class="note" style="margin-top:-8px">Toca lo que falta para agregarlo a la lista. Tócalo otra vez para quitarlo.</p>
+    ${pickerHTML("pkList")}
+    <button class="btn big dark" data-close>Listo<span class="dot">${ic("check")}</span></button>`, (root) => {
+    root.querySelectorAll("[data-close]").forEach((b) => (b.onclick = closeSheet));
+    const pk = mountPicker(root, {
+      isOn: (n) => listed(n),
+      onPick: (n) => {
+        const r = S.shop.find((s) => !s.done && norm(s.name) === norm(n));
+        if (r) { remove("shop", r.id); r.done = true; toast(`${n} quitado de la lista`); }
+        else {
+          const it = S.items.find((i) => norm(i.name) === norm(n));
+          if (it) toList(it); else addShop({ name: n, qty: 1 });
+          S.shop.push({ name: n, done: false, id: "tmp" + Date.now() });
+          toast(`${n} en la lista 🛒`);
+        }
+        pk.redraw();
+      },
+    });
+  });
+}
+
 function itemSheet(id, prefill = "") {
   const it = id ? S.items.find((i) => i.id === id) : null;
   const st = { name: it?.name || prefill, qty: it ? Number(it.qty) : 1, unit: it?.unit || guess(prefill).unit, place: it?.place || guess(prefill).place };
@@ -537,7 +591,7 @@ function itemSheet(id, prefill = "") {
   const g = guess(st.name);
   openSheet(`<div class="grip"></div>
     <div class="head"><h1>${it ? "Editar alimento" : "Agregar al refri"}</h1><button class="iconbtn sm" data-close aria-label="Cerrar">${ic("x")}</button></div>
-    ${it ? "" : `<div class="fl"><span class="lbl">Lo más frecuente</span><div class="qgrid" id="qgrid">${QUICK.slice(0, 8).map((n) => `<button type="button" class="qbtn" data-pick="${esc(n)}" aria-pressed="${norm(n) === norm(st.name)}">${foodSVG(n, guess(n).cat, 40)}${esc(n)}</button>`).join("")}</div></div>`}
+    ${it ? "" : pickerHTML("pkItem", "Buscar: jitomate, papel de baño, comino…")}
     <form id="itemForm" style="display:flex;flex-direction:column;gap:14px">
       <div class="fl"><label for="fName">${it ? "Nombre" : "O escribe otro"}</label><input class="field" id="fName" required value="${esc(st.name)}" placeholder="Ej. Chiles serranos" autocomplete="off"></div>
       <div class="row" style="justify-content:space-between">
@@ -562,10 +616,14 @@ function itemSheet(id, prefill = "") {
     const applyGuess = (n) => { const gg = guess(n); f("#fCat").value = gg.cat; f("#fUnit").value = gg.unit; if (gg.store && stores().includes(gg.store)) f("#fStore").value = gg.store; setPlace(gg.place); };
     const setPlace = (p) => { st.place = p; root.querySelectorAll("#fPlace .chip").forEach((b) => b.setAttribute("aria-pressed", b.dataset.place === p)); };
     root.querySelector("[data-close]").onclick = closeSheet;
-    root.querySelectorAll("[data-pick]").forEach((b) => (b.onclick = () => {
-      f("#fName").value = b.dataset.pick; applyGuess(b.dataset.pick);
-      root.querySelectorAll("[data-pick]").forEach((x) => x.setAttribute("aria-pressed", x === b)); lbl();
-    }));
+    if (!it) mountPicker(root, {
+      isOn: (n) => norm(n) === norm(f("#fName").value),
+      onPick: (n, b) => {
+        f("#fName").value = n; applyGuess(n);
+        const g2 = guess(n); f("#fQty").value = g2.unit === "pza" ? "3" : "1";
+        root.querySelectorAll(".pk-grid [data-pick]").forEach((x) => x.setAttribute("aria-pressed", x === b)); lbl();
+      },
+    });
     f("#fName").oninput = lbl; f("#fUnit").onchange = lbl;
     f("#fName").onchange = () => { if (!it) applyGuess(f("#fName").value); lbl(); };
     root.querySelectorAll("#fPlace .chip").forEach((b) => (b.onclick = () => setPlace(b.dataset.place)));
@@ -693,6 +751,7 @@ document.addEventListener("click", (e) => {
   }
   switch (d.act) {
     case "add": return itemSheet(null);
+    case "catalog": return catalogSheet();
     case "pdf": return exportPDF();
     case "missing": {
       const p = plan().filter((x) => x.pr !== "Planea" && !listed(x.it.name));

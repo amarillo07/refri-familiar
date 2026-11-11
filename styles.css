@@ -254,3 +254,14 @@ textarea.field { padding: 12px 14px; min-height: 140px; font-family: ui-monospac
   @keyframes up { from { transform: translateY(40px); opacity: .5; } }
   @keyframes fade { from { opacity: 0; } }
 }
+
+/* catálogo */
+.picker { display: flex; flex-direction: column; gap: 10px; }
+.pk-search { display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 14px; border-radius: 16px; background: var(--surface); color: var(--muted); }
+.pk-search input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; font-size: 1rem; color: var(--ink); }
+.pk-tabs { margin: 0 -20px; padding: 0 20px; }
+.pk-grid { max-height: min(46vh, 340px); overflow-y: auto; padding: 2px; align-content: start; overscroll-behavior: contain; }
+.pk-grid .qbtn { min-height: 84px; justify-content: flex-start; }
+.pk-grid .qbtn span { font-size: .72rem; line-height: 1.15; text-align: center; padding: 0 2px; overflow-wrap: anywhere; }
+.qbtn[aria-pressed="true"] { position: relative; }
+.qbtn[aria-pressed="true"]::after { content: "✓"; position: absolute; top: 4px; right: 6px; width: 18px; height: 18px; border-radius: 9px; background: var(--accent); color: var(--on-accent); font-size: .7rem; font-weight: 900; display: grid; place-items: center; }
