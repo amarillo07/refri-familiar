@@ -9,7 +9,9 @@ App para celular (Android y iPhone) para saber **qué hay en el refri**, armar l
 - 💡 Recomendaciones y gasto estimado en pesos, calculados con el consumo de tu familia. **Gratis**, sin IA de pago.
 - 🌗 Tema claro, oscuro o automático, 5 colores y letra grande.
 
-**Costo: $0.** Se aloja en GitHub Pages y los datos viven en el plan gratuito de Firebase.
+**Costo: $0.** Se publica en Netlify (desde este repositorio, se actualiza sola en cada cambio) y los datos viven en el plan gratuito de Firebase.
+
+👉 **App:** https://symphonious-fairy-fe9f66.netlify.app
 
 ---
 
@@ -20,7 +22,7 @@ App para celular (Android y iPhone) para saber **qué hay en el refri**, armar l
 2. En el menú, abre **Compilación → Firestore Database → Crear base de datos**. Elige la ubicación `nam5 (us-central)` y empieza en **modo de producción**.
 3. En Firestore, abre la pestaña **Reglas**, borra lo que haya, pega el contenido de [`firestore.rules`](firestore.rules) y toca **Publicar**.
 4. Abre **Compilación → Authentication → Comenzar**. En *Método de acceso* activa **Google** y **Correo electrónico/contraseña**.
-5. En *Authentication → Configuración → Dominios autorizados*, agrega `amarillo07.github.io`.
+5. En *Authentication → Configuración → Dominios autorizados*, agrega el dominio donde se publica la app (por ejemplo `symphonious-fairy-fe9f66.netlify.app`).
 
 ### 2. Conectar la app
 1. En ⚙️ **Configuración del proyecto → Tus apps**, toca el ícono **`</>`** (Web), ponle un nombre y regístrala. *No necesitas Firebase Hosting.*
@@ -30,7 +32,7 @@ App para celular (Android y iPhone) para saber **qué hay en el refri**, armar l
 > Los valores de `firebaseConfig` **no son secretos**. Lo que protege tus datos son las reglas de Firestore.
 
 ### 3. Instalar en el celular
-Abre **https://amarillo07.github.io/refri-familiar/**
+Abre **https://symphonious-fairy-fe9f66.netlify.app**
 - **iPhone (Safari):** botón Compartir → **Agregar a inicio**.
 - **Android (Chrome):** menú ⋮ → **Instalar app** o **Agregar a la pantalla principal**.
 
@@ -42,7 +44,7 @@ Abre **https://amarillo07.github.io/refri-familiar/**
 ---
 
 ## Cómo se actualiza
-Cada cambio que se sube a la rama `main` se publica solo en GitHub Pages. Al abrir la app, aparece **"Hay una versión nueva · Actualizar"**. Recuerda subir `VERSION` en `sw.js` en cada publicación.
+Cada cambio que se sube a la rama `main` se publica solo en Netlify. Al abrir la app, aparece **"Hay una versión nueva · Actualizar"**. Recuerda subir `VERSION` en `sw.js` en cada publicación.
 
 ## Estructura
 | Archivo | Qué es |
