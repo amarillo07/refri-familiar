@@ -7,7 +7,7 @@ import {
 import { firebaseConfig } from "./config.js";
 import { CATS, CAT, PLACES, UNITS, DEFAULT_STORES, QUICK, STAPLES, norm, guess, unitPrice, foodSVG } from "./foods.js";
 
-const VERSION = "1.0.0";
+const VERSION = "1.0.2";
 const DAY = 864e5;
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -75,31 +75,54 @@ else {
     S.stage = "loading"; render();
     unsubs.push(onSnapshot(doc(db, "users", u.uid), (snap) => {
       S.profile = snap.exists() ? snap.data() : null;
-      if (S.profile?.hid) startHome(S.profile.hid);
+      if (S.profile?.hid) { if (!creating) startHome(S.profile.hid); }
       else if (!snap.metadata.fromCache || !navigator.onLine) { stopHome(); S.stage = "onboard"; render(); }
     }, (e) => { console.error(e); toast("No se pudo leer tu perfil"); }));
   });
 }
-let homeSubs = [], homeId = null;
-function stopHome() { homeSubs.forEach((u) => u()); homeSubs = []; homeId = null; }
-function stopData() { unsubs.forEach((u) => u()); unsubs = []; stopHome(); S.home = null; S.items = []; S.shop = []; S.log = []; }
+let homeSubs = [], homeId = null, homeRetry = 0, homeTimer = null, creating = false;
+function stopHome() { clearTimeout(homeTimer); homeSubs.forEach((u) => u()); homeSubs = []; homeId = null; }
+function stopData() { unsubs.forEach((u) => u()); unsubs = []; stopHome(); homeRetry = 0; S.home = null; S.items = []; S.shop = []; S.log = []; }
+// Un hogar recién creado o al que te acabas de unir puede tardar unos segundos en llegar
+// al servidor. Mientras tanto Firebase responde "sin permiso": se reintenta en vez de sacarte.
+function homeDenied(hid, e) {
+  console.warn("home", e?.code, e);
+  if (homeId !== hid) return;
+  stopHome();
+  const stillMine = () => !S.profile?.hid || S.profile.hid === hid;
+  if (e?.code === "permission-denied" && homeRetry < 6 && stillMine()) {
+    homeRetry++;
+    homeTimer = setTimeout(() => { if (stillMine()) startHome(hid); }, 800 * homeRetry);
+    return;
+  }
+  homeRetry = 0;
+  if (e?.code === "permission-denied") toast("Ya no perteneces a ese hogar");
+  else toast("No se pudo abrir tu hogar. Revisa tu conexión.");
+  S.stage = "onboard"; render();
+}
 function startHome(hid) {
   if (homeId === hid) return;
   stopHome(); homeId = hid;
   const base = ["households", hid];
-  homeSubs.push(onSnapshot(doc(db, ...base), (snap) => {
-    if (!snap.exists()) return;
-    S.home = { id: hid, ...snap.data() };
-    if (S.stage !== "app") { S.stage = "app"; render(); } else refresh();
-  }, (e) => { console.error(e); if (e.code === "permission-denied") { toast("Ya no perteneces a ese hogar"); S.stage = "onboard"; render(); } }));
-  const sub = (name, q, key) => homeSubs.push(onSnapshot(q, { includeMetadataChanges: true }, (snap) => {
+  let subsOn = false;
+  const sub = (q, key) => homeSubs.push(onSnapshot(q, { includeMetadataChanges: true }, (snap) => {
     S[key] = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
     S.pending = snap.metadata.hasPendingWrites; S.fromCache = snap.metadata.fromCache;
     if (S.stage === "app") refresh();
-  }, (e) => console.error(name, e)));
-  sub("items", collection(db, ...base, "items"), "items");
-  sub("shop", collection(db, ...base, "shop"), "shop");
-  sub("log", query(collection(db, ...base, "log"), orderBy("at", "desc"), limit(800)), "log");
+  }, (e) => homeDenied(hid, e)));
+  homeSubs.push(onSnapshot(doc(db, ...base), { includeMetadataChanges: true }, (snap) => {
+    if (!snap.exists()) return;
+    S.home = { id: hid, ...snap.data() };
+    if (!snap.metadata.fromCache) homeRetry = 0;
+    // Las listas se abren cuando el hogar ya existe en el servidor (o sin señal, desde el teléfono).
+    if (!subsOn && (!snap.metadata.hasPendingWrites || !navigator.onLine)) {
+      subsOn = true;
+      sub(collection(db, ...base, "items"), "items");
+      sub(collection(db, ...base, "shop"), "shop");
+      sub(query(collection(db, ...base, "log"), orderBy("at", "desc"), limit(800)), "log");
+    }
+    if (S.stage !== "app") { S.stage = "app"; render(); } else refresh();
+  }, (e) => homeDenied(hid, e)));
 }
 const col = (name) => collection(db, "households", homeId, name);
 const ref = (name, id) => doc(db, "households", homeId, name, id);
@@ -832,8 +855,16 @@ function renderOnboard(el) {
     b.set(doc(db, "households", hid), { name: $("#oHome").value.trim() || "Nuestro refri", code, members: [uid], names: { [uid]: nm }, stores: DEFAULT_STORES, createdAt: Date.now() });
     b.set(doc(db, "codes", code), { hid });
     b.set(doc(db, "users", uid), { hid, name: nm });
-    $("#createBtn").disabled = true;
-    try { await b.commit(); } catch (e) { console.error(e); err("No se pudo crear. Revisa tu conexión y las reglas de Firestore."); $("#createBtn").disabled = false; }
+    $("#createBtn").disabled = true; $("#createBtn").textContent = "Creando…";
+    creating = true;
+    try {
+      await b.commit();
+      creating = false; homeRetry = 0; startHome(hid);
+    } catch (e) {
+      creating = false;
+      console.error(e); err("No se pudo crear. Revisa tu conexión e inténtalo de nuevo.");
+      $("#createBtn").disabled = false; $("#createBtn").textContent = "Crear hogar";
+    }
   };
   $("#joinBtn").onclick = async () => {
     const code = $("#oCode").value.trim().toUpperCase(), uid = me(), nm = $("#oName").value.trim() || "Yo";
@@ -845,6 +876,7 @@ function renderOnboard(el) {
       const hid = c.data().hid;
       await updateDoc(doc(db, "households", hid), { members: arrayUnion(uid), [`names.${uid}`]: nm });
       await setDoc(doc(db, "users", uid), { hid, name: nm });
+      homeRetry = 0;
     } catch (e) { console.error(e); $("#joinBtn").disabled = false; err(e.code === "permission-denied" ? "Ese hogar ya está lleno o el código no es válido." : "No se pudo unir. Revisa tu conexión."); }
   };
 }
